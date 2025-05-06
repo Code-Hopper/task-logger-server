@@ -1,8 +1,10 @@
 import express from "express"
-import { getHome } from "../controllers/controller.js"
+import { getHome, registerUser } from "../controllers/controller.js"
 
 let entryRouter = express()
 
 entryRouter.get("/", getHome)
+
+entryRouter.post("/register", registerUser)
 
 export default entryRouter 
