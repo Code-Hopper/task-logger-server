@@ -62,16 +62,69 @@ const sendOTP = async (email) => {
     }
 };
 
+let checkEmail = async (req, res) => {
+    try {
+
+        let email = req.body
+
+        if (!email) throw ("invalid data !")
+
+        // check if email exists
+
+        let userExists = await userModel.findOne({ "email": email })
+
+        if (!userExists) throw ("email email is already exists please login !")
+
+        // now send otp to check and verfiy email
+
+        let opt_sending_result = await sendOTP(email)
+
+        if (!opt_sending_result.status) throw (opt_sending_result.message)
+
+        // now ask user to entry otp and check email inbox
+
+        res.status(202).message({ message: `An otp has been sent to email address ${email}. please entry to verify the email.` })
+
+    } catch (err) {
+        console.log("error while checking user email : ", err)
+        res.status(400).json({ message: "error while checking user email please try again.", error: err })
+    }
+}
+
+let registerUser = async (data) => {
+    try {
+
+        let userData = data
+
+        if (!userData || !(!userData.name && !userData.password && !userData.email)) {
+            throw ("invalid or missing user data")
+        }
+
+        let userEntry = new userModel(userData)
+
+        await userEntry.save()
+
+        console.log("user successfully registered")
+
+        return { message: "user registred successfully", status: true }
+
+    } catch (err) {
+        console.log("error while registering the user : ", err)
+        return { message: "unable to register user", status: false }
+    }
+}
+
 // ✅ Verify OTP Endpoint
 const verifyOTP = async (req, res) => {
     try {
-        const { email, otp } = req.body;
+        const { email, otp, name, password } = req.body;
 
         console.log(email, "send otp", otp)
 
-        if (!email || !otp) return res.status(400).json({ message: "Email and OTP are required" });
+        if (!email || !otp || !name || !password) return res.status(400).json({ message: "email, name, password and OTP are required" });
 
         // Check if OTP exists for the given email
+
         const storedOTP = otpStore[email];
 
         console.log("stored Otp ", storedOTP)
@@ -87,53 +140,18 @@ const verifyOTP = async (req, res) => {
 
         console.log("otp matched !")
 
-        // ✅ OTP verified, proceed with login
-        delete otpStore[email];  // Remove OTP after successful verification
+        // now register the user
 
-        // ✅ Generate JWT Token (optional)
-        const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        let userRegistered = await registerUser()
 
-        let result = await AdminModel.updateOne({ email: email, $set: { token: token } })
+        if (!userRegistered.status) throw (userRegistered.message)
 
-        console.log(result)
-
-        res.status(202).json({ message: "OTP verified successfully and genrated token", token });
+        res.status(202).json({ message: "Otp verified successfully and user registred !" })
 
     } catch (error) {
         console.error("Error verifying OTP:", error);
-        res.status(500).json({ message: "Error verifying OTP", err: error.message });
-    }
-};
-
-let registerUser = async (req, res) => {
-    try {
-
-        let userData = req.body
-
-        if (!userData || !(!userData.name && !userData.password && !userData.email)) {
-            throw ("invalid or missing user data")
-        }
-
-        // send otp to userData.email to verify email
-
-        let opt_sending_result = await sendOTP(userData.email)
-
-        if (!opt_sending_result.status) {
-            throw (opt_sending_result.message)
-        }
-
-        let userEntry = new userModel(userData)
-
-        await userEntry.save()
-
-        console.log("use successfully registered")
-
-        res.status(202).json({ message: "we have sent you email id for verfication please confirm." })
-
-    } catch (err) {
-        console.log("error while registering the user : ", err)
-        res.status(400).json({ message: "error while added user please try again.", error: err })
+        res.status(400).json({ message: "Error Registering User & verifying OTP", err: error.message });
     }
 }
 
-export { getHome, registerUser }
+export { getHome, verifyOTP, checkEmail }
