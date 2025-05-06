@@ -9,18 +9,18 @@ let userSchema = mongoose.Schema({
     registerTimeStamp: String,
 })
 
-userSchema.save(async function () {
+userSchema.pre("save", async function () {
     try {
 
-        this.password = bcrypt.hash(this.password, 12)
+        this.password = await bcrypt.hash(this.password, 12)
 
-        this.registerTimeStamp = new Date().toLocaleDateString() + " | "+ new Date().toLocaleTimeString()
+        this.registerTimeStamp = new Date().toLocaleDateString() + " | " + new Date().toLocaleTimeString()
 
     } catch (err) {
         console.log("error while saving | encrypt : ", err)
     }
 })
 
-let userModel = new mongoose.model("super_admin", userSchema)
+let userModel = new mongoose.model("users", userSchema)
 
 export default userModel

@@ -34,9 +34,9 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 // Store OTP in memory with expiration (for production, use Redis)
 let otpStore = {};
 
-const sendOTP = async (email) => {
+const sendOTP = async (to) => {
     try {
-        const email = email
+        const email = to
         console.log("Sending OPT to:", email);
 
         if (!email) return { message: "unable to send opt | din't have email  !", status: false }
@@ -65,15 +65,17 @@ const sendOTP = async (email) => {
 let checkEmail = async (req, res) => {
     try {
 
-        let email = req.body
+        let { email } = req.body
+
+        console.log(email)
 
         if (!email) throw ("invalid data !")
 
         // check if email exists
 
-        let userExists = await userModel.findOne({ "email": email })
+        let userExists = await userModel.findOne({ email: email })
 
-        if (!userExists) throw ("email email is already exists please login !")
+        if (userExists) throw ("email is already exists please login !")
 
         // now send otp to check and verfiy email
 
@@ -83,7 +85,7 @@ let checkEmail = async (req, res) => {
 
         // now ask user to entry otp and check email inbox
 
-        res.status(202).message({ message: `An otp has been sent to email address ${email}. please entry to verify the email.` })
+        res.status(202).json({ message: `An otp has been sent to email address ${email}. please entry to verify the email.` })
 
     } catch (err) {
         console.log("error while checking user email : ", err)
@@ -96,9 +98,13 @@ let registerUser = async (data) => {
 
         let userData = data
 
-        if (!userData || !(!userData.name && !userData.password && !userData.email)) {
-            throw ("invalid or missing user data")
+        if (!userData || !userData.name || !userData.password || !userData.email) {
+            throw new Error("Invalid or missing user data");
         }
+
+        let emailExists = await userModel.findOne({ email: userData.email })
+
+        if (emailExists) throw ("email exists please login !")
 
         let userEntry = new userModel(userData)
 
@@ -135,6 +141,7 @@ const verifyOTP = async (req, res) => {
 
         // Check if OTP matches and is not expired
         if (storedOTP.otp !== otp || storedOTP.expiresAt < Date.now()) {
+            console.log("failed to match otp...")
             return res.status(400).json({ message: "Invalid or expired OTP" });
         }
 
@@ -142,7 +149,7 @@ const verifyOTP = async (req, res) => {
 
         // now register the user
 
-        let userRegistered = await registerUser()
+        let userRegistered = await registerUser({ email, name, password })
 
         if (!userRegistered.status) throw (userRegistered.message)
 
@@ -150,7 +157,7 @@ const verifyOTP = async (req, res) => {
 
     } catch (error) {
         console.error("Error verifying OTP:", error);
-        res.status(400).json({ message: "Error Registering User & verifying OTP", err: error.message });
+        res.status(400).json({ message: "Error Registering User & verifying OTP", err: error });
     }
 }
 
